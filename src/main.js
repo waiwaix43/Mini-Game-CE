@@ -124,6 +124,85 @@ btnSound.addEventListener('click', () => {
 // Helper: keep mobile/desktop status banner single-slot so clicking tools never shifts/stacks banners
 let guideDismissed = false;
 let lastGuideCaseKey = '';
+
+// Preload all 8 mascot poses for smooth, flicker-free cycling
+const MASCOT_ALL_POSES = [
+  './assets/mascot/mascot-01.png',
+  './assets/mascot/mascot-02.png',
+  './assets/mascot/mascot-03.png',
+  './assets/mascot/mascot-04.png',
+  './assets/mascot/mascot-05.png',
+  './assets/mascot/mascot-06.png',
+  './assets/mascot/mascot-07.png',
+  './assets/mascot/mascot-08.png',
+];
+MASCOT_ALL_POSES.forEach((src) => {
+  const img = new Image();
+  img.src = src;
+});
+
+const prefersReducedMotion =
+  typeof window.matchMedia === 'function' &&
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const mascotAnimator = {
+  poses: [
+    './assets/mascot/mascot-04.png',
+    './assets/mascot/mascot-03.png',
+    './assets/mascot/mascot-06.png',
+    './assets/mascot/mascot-01.png',
+  ],
+  poseIdx: 0,
+  timer: 0,
+  interval: 2.5,
+  celebrating: false,
+  applyPose(src, animClass = '') {
+    const targets = [elGuideMascotImg, elPeekMascotImg];
+    for (const el of targets) {
+      if (!el) continue;
+      el.src = src;
+      if (animClass && !prefersReducedMotion) {
+        el.classList.remove('is-swapping', 'is-posing');
+        void el.offsetWidth;
+        el.classList.add(animClass);
+      }
+    }
+  },
+  setPoses(poses, celebrate = false) {
+    this.poses = Array.isArray(poses) && poses.length > 0 ? poses : [MASCOT_ALL_POSES[3]];
+    this.poseIdx = 0;
+    this.timer = 0;
+    if (celebrate && !prefersReducedMotion) {
+      this.celebrating = true;
+      this.applyPose('./assets/mascot/mascot-08.png', 'is-swapping');
+    } else {
+      this.celebrating = false;
+      this.applyPose(this.poses[0], celebrate ? 'is-swapping' : '');
+    }
+  },
+  tick(dt) {
+    if (prefersReducedMotion || this.poses.length <= 1) return;
+    const guideVisible = elGuideCard && !elGuideCard.classList.contains('hidden');
+    const peekVisible = elReopenGuide && !elReopenGuide.classList.contains('hidden');
+    if (!guideVisible && !peekVisible) return;
+
+    this.timer += dt;
+    const targetDuration = this.celebrating ? 1.5 : this.interval;
+    if (this.timer < targetDuration) return;
+
+    this.timer = 0;
+    if (this.celebrating) {
+      this.celebrating = false;
+      this.poseIdx = 0;
+      this.applyPose(this.poses[0], 'is-posing');
+      return;
+    }
+
+    this.poseIdx = (this.poseIdx + 1) % this.poses.length;
+    this.applyPose(this.poses[this.poseIdx], 'is-posing');
+  },
+};
+
 function syncBannerVisibility() {
   const toolActive = renderer.activeTool !== 'none';
   const inspectorOpen = !elInspector.classList.contains('hidden');
@@ -891,27 +970,52 @@ function updateHUD() {
     const cases = [
       {
         done: hasHotToFood,
-        mascot: './assets/mascot/mascot-04.png',
+        poses: [
+          './assets/mascot/mascot-04.png',
+          './assets/mascot/mascot-03.png',
+          './assets/mascot/mascot-06.png',
+          './assets/mascot/mascot-01.png',
+        ],
         text: 'ปัญหาเวลาผลิตช้า: โรงงานอาหารต้มลวกช้า (12 วิ) — เชื่อม "น้ำร้อน" จากโรงงานน้ำตาลเพื่อลดเวลาเหลือ 8 วิ',
       },
       {
         done: hasBagasseToPaper,
-        mascot: './assets/mascot/mascot-05.png',
+        poses: [
+          './assets/mascot/mascot-05.png',
+          './assets/mascot/mascot-06.png',
+          './assets/mascot/mascot-04.png',
+          './assets/mascot/mascot-02.png',
+        ],
         text: 'ปัญหาต้นทุนเยื่อไม้แพง (฿45/รอบ): เชื่อม "ชานอ้อย" จากโรงงานน้ำตาลไปโรงงานกระดาษแทนเยื่อไม้ใหม่',
       },
       {
         done: hasOrgToFert,
-        mascot: './assets/mascot/mascot-06.png',
+        poses: [
+          './assets/mascot/mascot-06.png',
+          './assets/mascot/mascot-04.png',
+          './assets/mascot/mascot-05.png',
+          './assets/mascot/mascot-08.png',
+        ],
         text: 'ปัญหาปุ๋ยคุณภาพต่ำ (เกรด C): เชื่อม "กากอินทรีย์" และ "น้ำเสีย" เข้าโรงงานปุ๋ยชีวภาพเพื่อยกระดับเป็นเกรด A',
       },
       {
         done: hasWasteToTreatment,
-        mascot: './assets/mascot/mascot-07.png',
+        poses: [
+          './assets/mascot/mascot-07.png',
+          './assets/mascot/mascot-05.png',
+          './assets/mascot/mascot-06.png',
+          './assets/mascot/mascot-04.png',
+        ],
         text: 'ปัญหาน้ำเสียเกินกำลังปุ๋ยชีวภาพ: สร้าง "โรงงานบำบัดน้ำ" รับน้ำเสียส่วนเกินเพื่อกรองคืนเป็นน้ำดิบสะอาด (6 วิ)',
       },
       {
         done: hasClosed,
-        mascot: './assets/mascot/mascot-02.png',
+        poses: [
+          './assets/mascot/mascot-02.png',
+          './assets/mascot/mascot-08.png',
+          './assets/mascot/mascot-03.png',
+          './assets/mascot/mascot-04.png',
+        ],
         text: 'ปิดวงจรน้ำ 100%: ส่ง "น้ำดิบ" ที่บำบัดแล้วจากโรงงานบำบัดน้ำและปุ๋ยชีวภาพกลับไปโรงงานน้ำตาล',
       },
     ];
@@ -932,15 +1036,8 @@ function updateHUD() {
         elNsStepNum.textContent = `เคสปัญหา ${nextIdx + 1}/5`;
         elGuideSteps.textContent = activeCase.text;
         if (elPeekStepNum) elPeekStepNum.textContent = `เคส ${nextIdx + 1}/5`;
-        if (elGuideMascotImg) {
-          elGuideMascotImg.src = activeCase.mascot;
-          if (prevIdx !== -1 && prevIdx !== nextIdx) {
-            elGuideMascotImg.classList.remove('is-swapping');
-            void elGuideMascotImg.offsetWidth;
-            elGuideMascotImg.classList.add('is-swapping');
-          }
-        }
-        if (elPeekMascotImg) elPeekMascotImg.src = activeCase.mascot;
+        const didAdvanceCase = prevIdx !== -1 && prevIdx !== nextIdx;
+        mascotAnimator.setPoses(activeCase.poses, didAdvanceCase);
         if (elFnDots) {
           const dots = elFnDots.children;
           for (let i = 0; i < dots.length; i++) {
@@ -1076,6 +1173,7 @@ function loop(now) {
   } else {
     engine.update(dt);
     renderer.render(dt);
+    mascotAnimator.tick(dt);
 
     uiAccum += dt;
     if (uiAccum >= 0.2) {
