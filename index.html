@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>05 • EcoLink Industrial Symbiosis Simulation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.187.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <!-- Full-Bleed 3D Eco-Park Viewport -->
+  <canvas id="game-canvas"></canvas>
+  <div id="world-overlay" class="world-overlay" aria-hidden="true"></div>
+
+  <!-- TIME SKIP CINEMATIC OVERLAY (Speed Lines + Vignette + Live Fast-Forward HUD) -->
+  <div id="timeskip-overlay" class="timeskip-overlay hidden" aria-live="polite">
+    <div class="timeskip-vignette" aria-hidden="true"></div>
+    <div class="timeskip-speedlines" aria-hidden="true"></div>
+    <div class="timeskip-banner">
+      <div class="ts-head">
+        <span class="ts-chevrons" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </span>
+        <span class="ts-title">TIME SKIP</span>
+        <span class="ts-mult mono" id="ts-mult">×1</span>
+      </div>
+      <div class="ts-sub">กำลังเร่งเวลาจำลองผลลัพธ์จนจบ 10:00</div>
+      <div class="ts-bar-track">
+        <div class="ts-bar-fill" id="ts-bar-fill" style="width:0%"></div>
+      </div>
+      <button class="ts-skip-btn" id="btn-skip-now">ข้ามไปดูผลทันที</button>
+    </div>
+  </div>
+  <div id="timeskip-flash" class="timeskip-flash" aria-hidden="true"></div>
+
+  <!-- RESPONSIVE TOP HUD BAR (Prevents overlaps across desktop, tablet & mobile) -->
+  <header class="hud-top">
+    <!-- TOP-LEFT: Tactile Water Circularity Dial + Resource Plaque -->
+    <section class="hud-tl" aria-label="สถานะทรัพยากรและวงจรน้ำ">
+      <div class="dial-shell" title="อัตราการหมุนเวียนน้ำ (เป้าหมาย 100%)">
+        <svg class="dial-svg" viewBox="0 0 64 64" aria-hidden="true">
+          <circle class="dial-track" cx="32" cy="32" r="25" />
+          <circle class="dial-arc" id="dial-arc" cx="32" cy="32" r="25" stroke-dasharray="157.08" stroke-dashoffset="157.08" />
+        </svg>
+        <div class="dial-center">
+          <span class="dial-pct mono" id="hud-circularity">0%</span>
+          <span class="dial-sub">หมุนเวียน</span>
+        </div>
+        <span class="dial-mod-badge mono">05</span>
+      </div>
+
+      <div class="plaque-cluster">
+        <div class="plaque-top">
+          <div class="plaque-val-group" title="งบประมาณคงเหลือ">
+            <span class="p-ico" id="ico-money"></span>
+            <div class="p-stack">
+              <span class="p-kicker">งบประมาณ</span>
+              <b class="mono p-num" id="hud-money">฿2,800</b>
+            </div>
+          </div>
+          <span class="p-div"></span>
+          <div class="plaque-val-group" title="คะแนนรวม">
+            <span class="p-ico leaf" id="ico-score"></span>
+            <div class="p-stack">
+              <span class="p-kicker">คะแนน</span>
+              <b class="mono p-num" id="hud-score">0</b>
+            </div>
+          </div>
+        </div>
+        <div class="plaque-bottom">
+          <span class="led-indicator" id="hud-loop-led"></span>
+          <span id="hud-loop-badge" class="loop-text open">ระบบน้ำเปิด</span>
+          <span class="plaque-sep">•</span>
+          <span id="hud-factories" class="factory-count mono">โรงงาน 0/5</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- TOP-CENTER: Clear Visual Resource Color Legend -->
+    <section class="resource-legend" id="resource-legend" aria-label="สัญลักษณ์สีของทรัพยากร"></section>
+
+    <!-- TOP-RIGHT: Mechanical Game Clock Pod & Tactile Corner Actions -->
+    <section class="hud-tr" aria-label="เวลาและมุมกล้อง">
+      <div class="clock-pod">
+        <div class="clock-face">
+          <span class="c-ico" id="ico-timer"></span>
+          <div class="c-stack">
+            <span class="c-kicker">เวลาประเมิน</span>
+            <span class="clock-val mono" id="hud-timer">10:00</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="corner-tools">
+        <button class="round-btn legend-toggle-btn" id="btn-legend" title="แสดง/ซ่อนสัญลักษณ์สีทรัพยากร" aria-label="แสดงหรือซ่อนสัญลักษณ์สีทรัพยากร" aria-expanded="false"></button>
+        <button class="round-btn" id="btn-sound" title="เปิด/ปิดเสียงเอฟเฟกต์" aria-label="เปิดหรือปิดเสียง"></button>
+        <button class="round-btn" id="btn-rotate" title="หมุนมุมมอง 3D" aria-label="หมุนมุมมอง 3D"></button>
+        <button class="round-btn" id="btn-fit" title="รีเซ็ตมุมกล้อง" aria-label="รีเซ็ตมุมกล้อง"></button>
+        <button class="round-btn" id="btn-help" title="คู่มือการเล่น" aria-label="คู่มือการเล่น"></button>
+        <button class="stamp-btn" id="btn-finish">ประเมินผล</button>
+      </div>
+    </section>
+  </header>
+
+  <!-- RIGHT: Tactile Field-Journal Factory Inspector -->
+  <aside class="inspector-panel hidden" id="inspector-panel"></aside>
+
+  <!-- Toast Notifications -->
+  <div class="toast-container" id="toast-container" role="status" aria-live="polite"></div>
+
+  <!-- BOTTOM-CENTER: Terra Nil × Cities Skylines Tactile Architect's Tray -->
+  <footer class="dock-wrap">
+    <!-- Compact 1-Line Field Note Objective (auto-hides once closed loop is built) -->
+    <div class="field-note" id="guide-card">
+      <span class="fn-tag mono" id="ns-step-num">เคสปัญหา 1/5</span>
+      <span class="fn-text" id="guide-steps"></span>
+      <button class="fn-close" id="btn-dismiss-guide" aria-label="ปิดคำแนะนำ"></button>
+    </div>
+
+    <!-- Active Tool Prompt (only visible while building/connecting/inspecting) -->
+    <div class="tool-hint hidden" id="tool-hint"></div>
+
+    <!-- Floating Resource Picker when connecting from a multi-output factory -->
+    <div class="connect-picker hidden" id="connect-picker" role="group" aria-label="เลือกชนิดทรัพยากรที่ต้องการเชื่อม"></div>
+
+    <nav class="architect-tray" aria-label="เครื่องมือและโรงงาน">
+      <!-- Recessed Dark-Teal Tool Well (Separated Inspect, Connect, Demolish — Click again to cancel) -->
+      <div class="tool-well">
+        <button class="key-tool" data-tool="inspect" title="ดูรายละเอียดโรงงาน ปรับสูตร และจัดการเส้นทาง (กดซ้ำเพื่อยกเลิก)">
+          <span class="k-ico" data-svg="inspect"></span>
+          <span class="k-lbl"><span class="lbl-full">ดูรายละเอียด</span><span class="lbl-short">ข้อมูล</span></span>
+        </button>
+        <button class="key-tool connect-key" data-tool="connect" title="เชื่อมท่อน้ำและสายพานระหว่างโรงงาน (กดซ้ำเพื่อยกเลิก)">
+          <span class="k-ico" data-svg="connect"></span>
+          <span class="k-lbl"><span class="lbl-full">เชื่อมเส้นทาง</span><span class="lbl-short">เชื่อมท่อ</span></span>
+        </button>
+        <button class="key-tool danger-key" data-tool="demolish" title="รื้อถอนสิ่งปลูกสร้างหรือเส้นทาง คืนทุน 50% (กดซ้ำเพื่อยกเลิก)">
+          <span class="k-ico" data-svg="demolish"></span>
+          <span class="k-lbl">รื้อถอน</span>
+        </button>
+      </div>
+
+      <!-- Tactile Paper-Stone Factory Blueprint Keys (5 Factories incl. Water Treatment) -->
+      <div class="build-well">
+        <button class="key-build b-sugar" data-tool="build:sugar" title="สร้างโรงงานน้ำตาล (฿300) — กดซ้ำเพื่อยกเลิก">
+          <span class="kb-swatch"><span class="k-ico" data-svg="sugar"></span></span>
+          <span class="kb-meta">
+            <span class="k-lbl"><span class="lbl-full">โรงงานน้ำตาล</span><span class="lbl-short">น้ำตาล</span></span>
+            <span class="k-price mono">฿300</span>
+          </span>
+          <span class="kb-count mono hidden" data-bcount="sugar">×0</span>
+        </button>
+        <button class="key-build b-food" data-tool="build:food" title="สร้างโรงงานแปรรูปอาหาร (฿350) — กดซ้ำเพื่อยกเลิก">
+          <span class="kb-swatch"><span class="k-ico" data-svg="food"></span></span>
+          <span class="kb-meta">
+            <span class="k-lbl"><span class="lbl-full">โรงงานอาหาร</span><span class="lbl-short">อาหาร</span></span>
+            <span class="k-price mono">฿350</span>
+          </span>
+          <span class="kb-count mono hidden" data-bcount="food">×0</span>
+        </button>
+        <button class="key-build b-paper" data-tool="build:paper" title="สร้างโรงงานกระดาษและกล่อง (฿350) — กดซ้ำเพื่อยกเลิก">
+          <span class="kb-swatch"><span class="k-ico" data-svg="paper"></span></span>
+          <span class="kb-meta">
+            <span class="k-lbl"><span class="lbl-full">โรงงานกระดาษ</span><span class="lbl-short">กระดาษ</span></span>
+            <span class="k-price mono">฿350</span>
+          </span>
+          <span class="kb-count mono hidden" data-bcount="paper">×0</span>
+        </button>
+        <button class="key-build b-fert" data-tool="build:fertilizer" title="สร้างโรงงานปุ๋ยชีวภาพ (฿400) — กดซ้ำเพื่อยกเลิก">
+          <span class="kb-swatch"><span class="k-ico" data-svg="fertilizer"></span></span>
+          <span class="kb-meta">
+            <span class="k-lbl"><span class="lbl-full">ปุ๋ยชีวภาพ</span><span class="lbl-short">ปุ๋ย</span></span>
+            <span class="k-price mono">฿400</span>
+          </span>
+          <span class="kb-count mono hidden" data-bcount="fertilizer">×0</span>
+        </button>
+        <button class="key-build b-treat" data-tool="build:treatment" title="สร้างโรงงานบำบัดน้ำ (฿320) — กดซ้ำเพื่อยกเลิก">
+          <span class="kb-swatch"><span class="k-ico" data-svg="treatment"></span></span>
+          <span class="kb-meta">
+            <span class="k-lbl">บำบัดน้ำ</span>
+            <span class="k-price mono">฿320</span>
+          </span>
+          <span class="kb-count mono hidden" data-bcount="treatment">×0</span>
+        </button>
+      </div>
+    </nav>
+  </footer>
+
+  <!-- Educational Mission Briefing Overlay (Explains Purpose, Learning & Reward) -->
+  <div class="modal-backdrop" id="welcome-modal">
+    <div class="modal-card welcome-card">
+      <div class="modal-banner">
+        <span class="banner-num">05</span>
+        <div>
+          <h2>EcoLink: ปฏิบัติการนิคมอุตสาหกรรมเชิงนิเวศ</h2>
+          <p>จำลองแนวคิด Industrial Symbiosis &amp; Resource Optimization จากบทเรียนสู่การลงมือจริง</p>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="briefing-grid">
+          <div class="briefing-item">
+            <strong>เล่นเพื่ออะไร?</strong>
+            <p>ออกแบบเครือข่าย 5 โรงงานให้แลกเปลี่ยนน้ำและผลพลอยได้ระหว่างกัน เพื่อปิดวงจรน้ำ 100% ลดต้นทุน และเพิ่มคุณภาพผลผลิต</p>
+          </div>
+          <div class="briefing-item">
+            <strong>ประยุกต์สิ่งที่เรียนอย่างไร?</strong>
+            <p>ส่งต่อน้ำร้อนเพื่อลดเวลาผลิต นำชานอ้อยและกากอินทรีย์มาสร้างมูลค่า และบำบัดน้ำเสียคืนเป็นน้ำดิบโดยไม่ต้องทิ้ง</p>
+          </div>
+          <div class="briefing-item">
+            <strong>สิ่งที่จะได้รับเมื่อจบเกม</strong>
+            <p>ดาวประเมินความเข้าใจ (1–5 ดาว) พร้อมกราฟวัดทักษะ 3 มิติ และรายงานผลลัพธ์เชิงเศรษฐศาสตร์จากผังที่คุณออกแบบเอง</p>
+          </div>
+        </div>
+        <div class="briefing-tip">
+          <b>วิธีใช้งานเครื่องมือ:</b> กดปุ่ม<b>เชื่อมเส้นทาง</b> แล้วคลิก<b>โรงงานต้นทาง</b> → เลือกชนิดทรัพยากร → คลิก<b>โรงงานปลายทาง</b> | กดปุ่ม<b>ดูรายละเอียด</b>เพื่อตรวจสอบคลังและปรับสูตรผลิต | <b>กดปุ่มเครื่องมือเดิมซ้ำ (หรือ Esc) เพื่อยกเลิก</b> | เมื่อวางระบบเสร็จแล้วสามารถกด<b>ประเมินผล</b>เพื่อให้ระบบเร่งจำลองเวลาที่เหลือทันที
+        </div>
+        <div class="modal-actions">
+          <button class="btn-primary btn-start-game" id="btn-start-game">เริ่มออกแบบนิคมอุตสาหกรรม</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Field Journal Help Modal -->
+  <div class="modal-backdrop hidden" id="help-modal">
+    <div class="modal-card">
+      <div class="modal-banner">
+        <span class="banner-num">05</span>
+        <div>
+          <h2>Industrial Symbiosis &amp; Resource Optimization</h2>
+          <p>คู่มือการเชื่อมโยงทรัพยากรและวงจรน้ำปิด 100%</p>
+        </div>
+      </div>
+      <div class="modal-body">
+        <ul class="insights-list">
+          <li><b>วงจรน้ำ 3 สถานะ (ปิดวงจร 100% ครบ 5 โรงงาน):</b> น้ำดิบ (2) → โรงงานน้ำตาล → น้ำร้อน (2) → แบ่งส่ง อาหาร (1) + กระดาษ (1) → น้ำเสีย (2) → แบ่งเข้า ปุ๋ยชีวภาพ (1) + บำบัดน้ำ (1) → คืนน้ำดิบ (2) กลับสู่โรงงานน้ำตาล</li>
+          <li><b>Production Time:</b> ใช้น้ำร้อนช่วยลดเวลาผลิตอาหาร (8 วิ แทน 12 วิ) และกระดาษ (ชานอ้อย+น้ำร้อน 8 วิ, เยื่อไม้+น้ำร้อน 10 วิ)</li>
+          <li><b>Product Quality (C / B / A):</b> กล่องเกรด A ต้องใช้เยื่อไม้ใหม่ ส่วนปุ๋ยเกรด A ต้องหมักน้ำเสียร่วมกับกากอินทรีย์จากโรงงานอาหาร (หรือผสมชานอ้อย)</li>
+          <li><b>ค่ากำจัดของเสีย:</b> หากปล่อยน้ำเสียหรือของเหลือล้นโดยไม่เชื่อมต่อ จะเสียค่ากำจัดทิ้งและลดอัตราหมุนเวียนน้ำ</li>
+          <li><b>การควบคุมกล้อง 3D:</b> ลากซ้าย/1 นิ้ว เพื่อเลื่อน, ลากขวา/2 นิ้ว เพื่อหมุน 3D, ล้อเมาส์/จีบนิ้ว เพื่อซูม, แตะโรงงานเพื่อดูข้อมูลและเปลี่ยนสูตร</li>
+        </ul>
+        <div class="modal-actions">
+          <button class="btn-primary" id="btn-close-help">เข้าใจแล้ว</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Visual 5-Star Learning Achievement Report Modal -->
+  <div class="modal-backdrop hidden" id="report-modal">
+    <div class="modal-card">
+      <div class="modal-banner report-banner">
+        <div>
+          <h2>ผลการประเมินความเข้าใจ Industrial Symbiosis</h2>
+          <p id="report-mastery-title">สรุปทักษะจากการออกแบบเครือข่ายนิคมอุตสาหกรรม</p>
+        </div>
+      </div>
+      <div class="modal-body">
+        <!-- 5-Star Visual Rating -->
+        <div class="star-showcase">
+          <div class="stars-row" id="report-stars"></div>
+          <div class="star-score-sub">คะแนนความเข้าใจรวม <b class="mono" id="report-score">0</b> คะแนน</div>
+        </div>
+
+        <!-- 3 Visual Learning Competency Bars -->
+        <div class="mastery-bars">
+          <div class="m-bar-row">
+            <div class="m-bar-head"><span>ความเข้าใจวงจรน้ำปิด (Closed-Loop Water)</span><b class="mono" id="m-water-val">0%</b></div>
+            <div class="m-bar-track"><div class="m-bar-fill water" id="m-water-fill" style="width:0%"></div></div>
+          </div>
+          <div class="m-bar-row">
+            <div class="m-bar-head"><span>การเชื่อมโยงทรัพยากร (Resource Symbiosis)</span><b class="mono" id="m-sym-val">0%</b></div>
+            <div class="m-bar-track"><div class="m-bar-fill sym" id="m-sym-fill" style="width:0%"></div></div>
+          </div>
+          <div class="m-bar-row">
+            <div class="m-bar-head"><span>ความคุ้มค่าทางเศรษฐศาสตร์ (Eco-Efficiency)</span><b class="mono" id="m-eco-val">0%</b></div>
+            <div class="m-bar-track"><div class="m-bar-fill eco" id="m-eco-fill" style="width:0%"></div></div>
+          </div>
+        </div>
+
+        <div class="report-grid compact-grid">
+          <div class="report-box"><small>อัตราหมุนเวียนน้ำ</small><b class="mono" id="report-circ">0%</b></div>
+          <div class="report-box"><small>ต้นทุนที่ประหยัดได้</small><b class="mono" id="report-saved">฿0</b></div>
+          <div class="report-box"><small>สินค้าที่ผลิตได้</small><b class="mono" id="report-orders">0 ชิ้น</b></div>
+          <div class="report-box"><small>ผลพลอยได้ที่ใช้ซ้ำ</small><b class="mono" id="report-solid">0 หน่วย</b></div>
+        </div>
+
+        <div class="report-breakdown" id="report-factory-breakdown"></div>
+
+        <div class="insp-label">สิ่งที่คุณได้เรียนรู้และพิสูจน์จากเครือข่ายนี้</div>
+        <ul class="insights-list" id="report-insights"></ul>
+        <div class="modal-actions">
+          <button class="btn-secondary" id="btn-continue-sandbox">ทดลองต่อแบบอิสระ</button>
+          <button class="btn-primary" id="btn-restart">เริ่มออกแบบใหม่</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
