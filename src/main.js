@@ -69,6 +69,12 @@ const elToolHint = document.getElementById('tool-hint');
 const elConnectPicker = document.getElementById('connect-picker');
 const elGuideSteps = document.getElementById('guide-steps');
 const elGuideCard = document.getElementById('guide-card');
+const elGuideMascotImg = document.getElementById('guide-mascot-img');
+const elFnDots = document.getElementById('fn-dots');
+const btnMascotAvatar = document.getElementById('btn-mascot-avatar');
+const elReopenGuide = document.getElementById('btn-reopen-guide');
+const elPeekMascotImg = document.getElementById('peek-mascot-img');
+const elPeekStepNum = document.getElementById('peek-step-num');
 const elReportModal = document.getElementById('report-modal');
 const elHelpModal = document.getElementById('help-modal');
 const elTimeSkipOverlay = document.getElementById('timeskip-overlay');
@@ -117,13 +123,17 @@ btnSound.addEventListener('click', () => {
 
 // Helper: keep mobile/desktop status banner single-slot so clicking tools never shifts/stacks banners
 let guideDismissed = false;
+let lastGuideCaseKey = '';
 function syncBannerVisibility() {
   const toolActive = renderer.activeTool !== 'none';
   const inspectorOpen = !elInspector.classList.contains('hidden');
   const isCompact = window.innerWidth <= 768;
   const allSolved = engine.unlockedInsights.has('all_cases_solved');
-  const shouldHideGuide = guideDismissed || allSolved || toolActive || (isCompact && inspectorOpen);
-  elGuideCard.classList.toggle('hidden', shouldHideGuide);
+  const canShowGuide = !allSolved && !toolActive && !(isCompact && inspectorOpen);
+  elGuideCard.classList.toggle('hidden', guideDismissed || !canShowGuide);
+  if (elReopenGuide) {
+    elReopenGuide.classList.toggle('hidden', !guideDismissed || !canShowGuide);
+  }
 }
 
 // --- Tool Selection (Click same active tool again or press Esc to cancel) ---
@@ -207,10 +217,22 @@ btnRotate.addEventListener('click', () => renderer.rotateCameraStep());
 btnFit.addEventListener('click', () => renderer.fitToViewport());
 btnHelp.addEventListener('click', () => elHelpModal.classList.remove('hidden'));
 document.getElementById('btn-close-help').addEventListener('click', () => elHelpModal.classList.add('hidden'));
-document.getElementById('btn-dismiss-guide').addEventListener('click', () => {
+function dismissGuideBanner() {
   guideDismissed = true;
-  elGuideCard.classList.add('hidden');
-});
+  sfx.click();
+  syncBannerVisibility();
+}
+document.getElementById('btn-dismiss-guide').addEventListener('click', dismissGuideBanner);
+if (btnMascotAvatar) {
+  btnMascotAvatar.addEventListener('click', dismissGuideBanner);
+}
+if (elReopenGuide) {
+  elReopenGuide.addEventListener('click', () => {
+    guideDismissed = false;
+    sfx.click();
+    syncBannerVisibility();
+  });
+}
 
 // --- Live Animated Time Skip Evaluation Controller ---
 const timeSkip = {
@@ -349,7 +371,8 @@ document.getElementById('btn-restart').addEventListener('click', () => {
   elInspector.classList.add('hidden');
   elReportModal.classList.add('hidden');
   guideDismissed = false;
-  elGuideCard.classList.remove('hidden');
+  lastGuideCaseKey = '';
+  syncBannerVisibility();
   setTool('none');
   updateSpeedButtons();
   renderer.fitToViewport();
@@ -847,7 +870,7 @@ function updateHUD() {
     .map((t) => `<div class="toast toast-${t.type}">${t.message}</div>`)
     .join('');
 
-  if (!elGuideCard.classList.contains('hidden')) {
+  if (!engine.unlockedInsights.has('all_cases_solved')) {
     const hasHotToFood = engine.links.some((l) => {
       const t = engine.buildings.find((b) => b.id === l.toId);
       return l.resource === 'hot_water' && t && t.typeId === 'food';
@@ -868,37 +891,64 @@ function updateHUD() {
     const cases = [
       {
         done: hasHotToFood,
+        mascot: './assets/mascot/mascot-04.png',
         text: 'ปัญหาเวลาผลิตช้า: โรงงานอาหารต้มลวกช้า (12 วิ) — เชื่อม "น้ำร้อน" จากโรงงานน้ำตาลเพื่อลดเวลาเหลือ 8 วิ',
       },
       {
         done: hasBagasseToPaper,
+        mascot: './assets/mascot/mascot-05.png',
         text: 'ปัญหาต้นทุนเยื่อไม้แพง (฿45/รอบ): เชื่อม "ชานอ้อย" จากโรงงานน้ำตาลไปโรงงานกระดาษแทนเยื่อไม้ใหม่',
       },
       {
         done: hasOrgToFert,
+        mascot: './assets/mascot/mascot-06.png',
         text: 'ปัญหาปุ๋ยคุณภาพต่ำ (เกรด C): เชื่อม "กากอินทรีย์" และ "น้ำเสีย" เข้าโรงงานปุ๋ยชีวภาพเพื่อยกระดับเป็นเกรด A',
       },
       {
         done: hasWasteToTreatment,
+        mascot: './assets/mascot/mascot-07.png',
         text: 'ปัญหาน้ำเสียเกินกำลังปุ๋ยชีวภาพ: สร้าง "โรงงานบำบัดน้ำ" รับน้ำเสียส่วนเกินเพื่อกรองคืนเป็นน้ำดิบสะอาด (6 วิ)',
       },
       {
         done: hasClosed,
+        mascot: './assets/mascot/mascot-02.png',
         text: 'ปิดวงจรน้ำ 100%: ส่ง "น้ำดิบ" ที่บำบัดแล้วจากโรงงานบำบัดน้ำและปุ๋ยชีวภาพกลับไปโรงงานน้ำตาล',
       },
     ];
     const nextIdx = cases.findIndex((c) => !c.done);
     if (nextIdx === -1) {
-      if (!engine.unlockedInsights.has('all_cases_solved')) {
-        engine.unlockedInsights.add('all_cases_solved');
-        engine.score += 300;
-        sfx.closedLoop();
-        engine.pushToast('ยอดเยี่ยม! ใช้งานครบทั้ง 5 โรงงานและแก้โจทย์ครบ 5 เคสแล้ว (+300 คะแนน)', 'success');
-      }
-      elGuideCard.classList.add('hidden');
+      engine.unlockedInsights.add('all_cases_solved');
+      engine.score += 300;
+      sfx.closedLoop();
+      engine.pushToast('ยอดเยี่ยม! ใช้งานครบทั้ง 5 โรงงานและแก้โจทย์ครบ 5 เคสแล้ว (+300 คะแนน)', 'success');
+      lastGuideCaseKey = 'done';
+      syncBannerVisibility();
     } else {
-      elNsStepNum.textContent = `เคสปัญหา ${nextIdx + 1}/5`;
-      elGuideSteps.textContent = cases[nextIdx].text;
+      const caseKey = `${nextIdx}:${cases.map((c) => (c.done ? '1' : '0')).join('')}`;
+      if (caseKey !== lastGuideCaseKey) {
+        const prevIdx = lastGuideCaseKey ? Number(lastGuideCaseKey.split(':')[0]) : -1;
+        lastGuideCaseKey = caseKey;
+        const activeCase = cases[nextIdx];
+        elNsStepNum.textContent = `เคสปัญหา ${nextIdx + 1}/5`;
+        elGuideSteps.textContent = activeCase.text;
+        if (elPeekStepNum) elPeekStepNum.textContent = `เคส ${nextIdx + 1}/5`;
+        if (elGuideMascotImg) {
+          elGuideMascotImg.src = activeCase.mascot;
+          if (prevIdx !== -1 && prevIdx !== nextIdx) {
+            elGuideMascotImg.classList.remove('is-swapping');
+            void elGuideMascotImg.offsetWidth;
+            elGuideMascotImg.classList.add('is-swapping');
+          }
+        }
+        if (elPeekMascotImg) elPeekMascotImg.src = activeCase.mascot;
+        if (elFnDots) {
+          const dots = elFnDots.children;
+          for (let i = 0; i < dots.length; i++) {
+            dots[i].classList.toggle('done', Boolean(cases[i] && cases[i].done));
+            dots[i].classList.toggle('active', i === nextIdx);
+          }
+        }
+      }
     }
   }
 

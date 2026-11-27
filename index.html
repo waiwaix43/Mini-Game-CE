@@ -120,12 +120,48 @@
 
   <!-- BOTTOM-CENTER: Terra Nil × Cities Skylines Tactile Architect's Tray -->
   <footer class="dock-wrap">
-    <!-- Compact 1-Line Field Note Objective (auto-hides once closed loop is built) -->
-    <div class="field-note" id="guide-card">
-      <span class="fn-tag mono" id="ns-step-num">เคสปัญหา 1/5</span>
-      <span class="fn-text" id="guide-steps"></span>
-      <button class="fn-close" id="btn-dismiss-guide" aria-label="ปิดคำแนะนำ"></button>
+    <!-- Compact Mascot Advisor Field Note (auto-hides once closed loop is built) -->
+    <div class="field-note" id="guide-card" role="region" aria-label="คำแนะนำเคสปัญหาจากมาสคอต">
+      <button type="button" class="fn-mascot" id="btn-mascot-avatar" title="ซ่อนคำแนะนำชั่วคราว" aria-label="ซ่อนคำแนะนำเคสปัญหา">
+        <img
+          id="guide-mascot-img"
+          class="fn-mascot-img"
+          src="./assets/mascot/mascot-04.png"
+          alt="มาสคอต EcoLink"
+          width="72"
+          height="72"
+          decoding="async"
+        />
+      </button>
+      <div class="fn-body">
+        <div class="fn-head">
+          <span class="fn-tag mono" id="ns-step-num">เคสปัญหา 1/5</span>
+          <span class="fn-dots" id="fn-dots" aria-hidden="true">
+            <span class="fn-dot active"></span>
+            <span class="fn-dot"></span>
+            <span class="fn-dot"></span>
+            <span class="fn-dot"></span>
+            <span class="fn-dot"></span>
+          </span>
+        </div>
+        <span class="fn-text" id="guide-steps"></span>
+      </div>
+      <button type="button" class="fn-close" id="btn-dismiss-guide" title="ซ่อนข้อความเคสปัญหา" aria-label="ปิดคำแนะนำ"></button>
     </div>
+
+    <!-- Compact Mascot Peek Button (re-opens case problem when minimized) -->
+    <button type="button" class="mascot-peek hidden" id="btn-reopen-guide" title="เปิดดูข้อความเคสปัญหา" aria-label="เปิดดูข้อความเคสปัญหา">
+      <img
+        id="peek-mascot-img"
+        class="mascot-peek-img"
+        src="./assets/mascot/mascot-04.png"
+        alt="มาสคอต EcoLink"
+        width="40"
+        height="40"
+        decoding="async"
+      />
+      <span class="mascot-peek-badge mono" id="peek-step-num">เคส 1/5</span>
+    </button>
 
     <!-- Active Tool Prompt (only visible while building/connecting/inspecting) -->
     <div class="tool-hint hidden" id="tool-hint"></div>
